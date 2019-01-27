@@ -274,15 +274,15 @@ function __bobthefish_git_ahead_verbose -S -d 'Print a more verbose ahead/behind
         case '0 *' # behind upstream
             echo "$git_behind_glyph$behind"
         case '*' # diverged from upstream
-            echo "$git_ahead_glyph$ahead$git_behind_glyph$behind"
+            echo "$git_ahead_glyph$ahead $git_behind_glyph$behind"
     end
 end
 
 function __bobthefish_git_dirty_verbose -S -d 'Print a more verbose dirty state for the current working tree'
-    set -l changes (command git diff --numstat | awk '{ added += $1; removed += $2 } END { print "+" added "/-" removed }')
+    set -l changes (count (command git diff --numstat))
     or return
 
-    echo "$changes " | string replace -r '(\+0/(-0)?|/-0)' ''
+    echo "$changes" | string replace -r '(\+0/(-0)?|/-0)' ''
 end
 
 
@@ -457,6 +457,13 @@ end
 # ==============================
 # Container and VM segments
 # ==============================
+
+function __bobthefish_prompt_schroot -S -d 'Display current schroot environment'
+    [ "$theme_display_schroot" = 'no' -o -z "$SCHROOT_CHROOT_NAME" ]; and return
+    __bobthefish_start_segment $color_schroot
+    echo -ns $schroot_glyph ' ' "$SCHROOT_CHROOT_NAME" ' '
+    set_color normal
+end
 
 function __bobthefish_prompt_vagrant -S -d 'Display Vagrant status'
     [ "$theme_display_vagrant" = 'yes' -a -f Vagrantfile ]
@@ -827,25 +834,43 @@ function __bobthefish_prompt_git -S -a git_root_dir -d 'Display the actual git s
         end
     end
 
-    set -l staged (command git diff --cached --no-ext-diff --quiet --exit-code 2>/dev/null; or echo -n "$git_staged_glyph")
-    set -l stashed (command git rev-parse --verify --quiet refs/stash >/dev/null; and echo -n "$git_stashed_glyph")
+    set -l staged  (count (command git diff --cached --numstat 2>/dev/null))
+    if test "$staged" = 0
+        set staged ''
+    else
+        if test "$theme_display_git_staged_verbose" = 'yes'
+            set staged "$git_staged_glyph$staged"
+        else
+            set staged "$git_staged_glyph"
+        end
+    end
+  
+    set -l stashed (count (command git rev-parse --verify --quiet refs/stash >/dev/null; and git log -g --first-parent -m --oneline refs/stash))
+    if test "$stashed" = 0
+        set stashed ''
+    else
+        if test "$theme_display_git_stashed_verbose" = 'yes'
+            set stashed "$git_stashed_glyph$stashed"
+        else
+            set stashed "$git_stashed_glyph"
+        end
+    end
     set -l ahead (__bobthefish_git_ahead)
 
     set -l new ''
     if [ "$theme_display_git_untracked" != 'no' ]
         set -l show_untracked (command git config --bool bash.showUntrackedFiles 2>/dev/null)
         if [ "$show_untracked" != 'false' ]
-            set new (command git ls-files --other --exclude-standard --directory --no-empty-directory 2>/dev/null)
+            set new (command git -C "$current_dir" ls-files --other --exclude-standard --directory --no-empty-directory 2>/dev/null)
             if [ "$new" ]
-                set new "$git_untracked_glyph"
+                if [ "$theme_display_git_untracked_verbose" = 'yes' ]
+                    set new "$git_untracked_glyph"(count $new)
+                else
+                    set new "$git_untracked_glyph"
+                end
             end
         end
     end
-
-    set -l flags "$dirty$staged$stashed$ahead$new"
-
-    [ "$flags" ]
-    and set flags " $flags"
 
     set -l flag_colors $color_repo
     if [ "$dirty" ]
@@ -856,9 +881,39 @@ function __bobthefish_prompt_git -S -a git_root_dir -d 'Display the actual git s
 
     __bobthefish_path_segment $git_root_dir
 
-    __bobthefish_start_segment $flag_colors
-    echo -ns (__bobthefish_git_branch) $flags ' '
-    set_color normal
+    #__bobthefish_start_segment $flag_colors
+    __bobthefish_start_segment 383838 383838
+
+    set_color "$flag_colors[1]"
+    echo -ns (__bobthefish_git_branch)
+    set normal
+
+    if [ "$staged" ]
+        set_color a1b56c
+        echo -n -- " $staged"
+        set_color "$flag_colors[2]"
+    end
+    if [ "$dirty" ]
+        set_color dc9656
+        echo -n -- " $dirty"
+        set_color "$flag_colors[2]"
+    end
+    if [ "$new" ]
+        set_color f7ca88
+        echo -n -- " $new"
+        set_color "$flag_colors[2]"
+    end
+    if [ "$ahead" ]
+        set_color f8f8f8
+        echo -n -- " $ahead"
+        set_color "$flag_colors[2]"
+    end
+    if [ "$stashed" ]
+        set_color 7cafc2
+        echo -n -- " $stashed"
+        set_color "$flag_colors[2]"
+    end
+    echo -n ' '
 
     if [ "$theme_git_worktree_support" != 'yes' ]
         set -l project_pwd (__bobthefish_project_pwd $git_root_dir)
@@ -962,6 +1017,7 @@ function fish_prompt -d 'bobthefish, a fish theme optimized for awesome'
     __bobthefish_prompt_vi
 
     # Containers and VMs
+    __bobthefish_prompt_schroot
     __bobthefish_prompt_vagrant
     __bobthefish_prompt_docker
     __bobthefish_prompt_k8s_context
