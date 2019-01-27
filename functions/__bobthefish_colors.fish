@@ -198,6 +198,7 @@ function __bobthefish_colors -S -a color_scheme -d 'Define colors used by bobthe
       set -x color_vi_mode_insert           $base0B $colorfg --bold
       set -x color_vi_mode_visual           $base09 $colorfg --bold
 
+      set -x color_schroot                  $base0E $colorfg --bold
       set -x color_vagrant                  $base0C $colorfg --bold
       set -x color_k8s                      $base06 $colorfg --bold
       set -x color_username                 $base02 $base0D --bold
