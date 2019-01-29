@@ -861,7 +861,7 @@ function __bobthefish_prompt_git -S -a git_root_dir -d 'Display the actual git s
     if [ "$theme_display_git_untracked" != 'no' ]
         set -l show_untracked (command git config --bool bash.showUntrackedFiles 2>/dev/null)
         if [ "$show_untracked" != 'false' ]
-            set new (command git -C "$current_dir" ls-files --other --exclude-standard --directory --no-empty-directory 2>/dev/null)
+            set new (command git -C "$git_root_dir" ls-files --other --exclude-standard --directory --no-empty-directory 2>/dev/null)
             if [ "$new" ]
                 if [ "$theme_display_git_untracked_verbose" = 'yes' ]
                     set new "$git_untracked_glyph"(count $new)
