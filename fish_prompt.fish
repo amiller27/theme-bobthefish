@@ -104,11 +104,11 @@ function __bobthefish_pretty_parent -S -a child_dir -d 'Print a parent directory
 end
 
 function __bobthefish_ignore_vcs_dir -d 'Check whether the current directory should be ignored as a VCS segment'
-    set -l real_pwd (realpath $PWD)
+    set -l real_vcs_dir (realpath $argv[1])
     for p in $theme_vcs_ignore_paths
         set ignore_path (realpath $p 2>/dev/null)
-        switch $real_pwd/
-            case $ignore_path/\*
+        switch $real_vcs_dir
+            case $ignore_path
                 echo 1
                 return
         end
@@ -119,14 +119,14 @@ function __bobthefish_git_project_dir -S -d 'Print the current git project base 
     [ "$theme_display_git" = 'no' ]
     and return
 
-    set -q theme_vcs_ignore_paths
-    and [ (__bobthefish_ignore_vcs_dir) ]
-    and return
-
     if [ "$theme_git_worktree_support" != 'yes' ]
         set -l git_toplevel (command git rev-parse --show-toplevel 2>/dev/null)
 
         [ -z "$git_toplevel" ]
+        and return
+
+        set -q theme_vcs_ignore_paths
+        and [ (__bobthefish_ignore_vcs_dir "$git_toplevel") ]
         and return
 
         # If there are no symlinks, just use git toplevel
@@ -154,6 +154,10 @@ function __bobthefish_git_project_dir -S -d 'Print the current git project base 
 
     set -l git_dir (command git rev-parse --git-dir 2>/dev/null)
     or return
+
+    set -q theme_vcs_ignore_paths
+    and [ (__bobthefish_ignore_vcs_dir "$git_dir") ]
+    and return
 
     pushd $git_dir
     set git_dir $PWD
@@ -194,12 +198,13 @@ function __bobthefish_hg_project_dir -S -d 'Print the current hg project base di
     [ "$theme_display_hg" = 'yes' ]
     or return
 
-    set -q theme_vcs_ignore_paths
-    and [ (__bobthefish_ignore_vcs_dir) ]
-    and return
-
     set -l d $PWD
     while not [ -z "$d" ]
+
+        set -q theme_vcs_ignore_paths
+        and [ (__bobthefish_ignore_vcs_dir $d) ]
+        and return
+
         if [ -e $d/.hg ]
             command hg root --cwd "$d" 2>/dev/null
             return
